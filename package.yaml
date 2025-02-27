@@ -40,6 +40,8 @@ library:
   - syb
   exposed-modules:
     Data.Derive.TTG
+  other-modules:
+    Data.Derive.TTG.Utils
   
 tests:
   derive-ttg-test:
