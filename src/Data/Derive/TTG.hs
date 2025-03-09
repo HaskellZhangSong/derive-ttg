@@ -23,7 +23,7 @@ type TypeName = Name
 type ConName = Name
 
 extType :: [Name] -> VarName -> Type -> Type
-extType names eps (ConT name) | name `elem` names 
+extType names eps (ConT name) | name `elem` names
     = let ext_name = suffixX name in AppT (ConT ext_name) (VarT eps)
 extType _ _ t = t
 
@@ -39,43 +39,42 @@ suffixX n = mkName $ nameBase n ++ "X"
 lowerSuffixX n = mkName $ map toLower (nameBase n) ++ "X"
 
 extendCon :: IsGadt -> [VarName] -> [Name] -> Con -> VarName -> [Con]
-extendCon _ ty_para_names names (NormalC name ts) esp 
-    = let 
+extendCon _ ty_para_names names (NormalC name ts) esp
+    = let
         new_con_name = suffixX name;
-        ext_ty       = appTypes $ ConT (prefixX name) : (VarT esp): map VarT ty_para_names; 
+        ext_ty       = appTypes $ ConT (prefixX name) : (VarT esp): map VarT ty_para_names;
         new_tys      = genericExtType names esp ts
         in  [NormalC new_con_name ((defaultBang, ext_ty) : new_tys)]
 
-extendCon _ ty_para_names names (RecC name vbts)   esp 
-    = let 
+extendCon _ ty_para_names names (RecC name vbts)   esp
+    = let
         new_con_name = suffixX name;
-        ext_ty       = appTypes $ ConT (prefixX name) : (VarT esp) : map VarT ty_para_names; 
+        ext_ty       = appTypes $ ConT (prefixX name) : (VarT esp) : map VarT ty_para_names;
         new_tys      = map (\(n, b, t) -> (lowerSuffixX n,b,t)) (genericExtType names esp vbts)
         in [RecC new_con_name ((lowerSuffixX name, defaultBang, ext_ty) : new_tys)]
 
 -- Note: Operator constructor cannot be extended
-extendCon _ _ _ (InfixC _ name _) _ 
+extendCon _ _ _ (InfixC _ name _) _
     = error $ "Cannot extend operator:" ++ show name
 
--- FIX: if is_gadt then should extend more variables
-extendCon is_gadt _ names (ForallC tvb context con) esp 
+extendCon is_gadt _ names (ForallC tvb context con) esp
     = if is_gadt
         then let esp_tvb = (PlainTV esp SpecifiedSpec)
                 in [ForallC (esp_tvb : tvb) context (head (extendCon is_gadt (map getTyVarBndrName tvb) names con esp))]
         else [ForallC tvb context (head (extendCon is_gadt (map getTyVarBndrName tvb) names con esp))]
 
-extendCon _ ty_para_names names (GadtC ns ts t) esp = 
+extendCon _ ty_para_names names (GadtC ns ts t) esp =
     [let
         new_con_name = suffixX name;
-        ext_ty       = appTypes $ (ConT (prefixX name)) : VarT esp : map VarT ty_para_names; 
-        new_tys      = genericExtType names esp ts 
-        ret_ty       = genericExtType names esp t in 
+        ext_ty       = appTypes $ (ConT (prefixX name)) : VarT esp : map VarT ty_para_names;
+        new_tys      = genericExtType names esp ts
+        ret_ty       = genericExtType names esp t in
         GadtC [new_con_name] ((defaultBang, ext_ty) : new_tys) (genericExtType names esp ret_ty)| name <- ns]
 
-extendCon _ ty_para_names names (RecGadtC ns vbts t) esp = 
+extendCon _ ty_para_names names (RecGadtC ns vbts t) esp =
     [let
         new_con_name = suffixX name;
-        ext_ty       = appTypes $ (ConT (prefixX name)) : VarT esp : map VarT ty_para_names; 
+        ext_ty       = appTypes $ (ConT (prefixX name)) : VarT esp : map VarT ty_para_names;
         new_tys      = map (\(n, b, ty) -> (lowerSuffixX n,b,ty)) (genericExtType names esp vbts)
         ret_ty       = genericExtType names esp t in
         RecGadtC [new_con_name] ((lowerSuffixX name, defaultBang, ext_ty) : new_tys) ret_ty| name <- ns]
@@ -90,7 +89,7 @@ extendCons is_gadt ty_para_names names cons vn = if is_gadt
                                                         concatMap (\x -> extendCon is_gadt ty_para_names names x vn) cons
 
 genTypeFamily :: [VarName] -> Name -> Dec
-genTypeFamily vns name = 
+genTypeFamily vns name =
     let var_params = map (\n -> PlainTV n BndrReq) vns
         eps_var    = PlainTV (mkName "eps") BndrReq
         in OpenTypeFamilyD (TypeFamilyHead (prefixX name) (eps_var : var_params) NoSig Nothing)
@@ -99,7 +98,7 @@ getDataConNames :: Con -> ([ConName], [VarName])
 getDataConNames (NormalC name _)  = ([name], [])
 getDataConNames (RecC name _)     = ([name], [])
 getDataConNames (InfixC _ name _) = ([name], [])
-getDataConNames (ForallC tvbs _ con)  = let (ns, vars) = getDataConNames con
+getDataConNames (ForallC tvbs _ con)  = let (ns, _) = getDataConNames con
                                             in (ns, map getTyVarBndrName tvbs)
 getDataConNames (GadtC ns _ _)    = (ns, [])
 getDataConNames (RecGadtC ns _ _) = (ns, [])
@@ -121,7 +120,7 @@ generateConstraint gadt vns tn cons =
         esp_var          = VarT esp_name
         type_family_con  = if not gadt
                                 then map (\n -> AppT (VarT phi) $ appTypes $ (ConT $ prefixX n) : esp_var : map VarT vns) (getAllConNames cons)
-                                else map (\(n, vs) -> AppT (VarT phi) $ appTypes $ (ConT $ prefixX n) : esp_var : map VarT (map (mkName.show) vs)) 
+                                else map (\(n, vs) -> AppT (VarT phi) $ appTypes $ (ConT $ prefixX n) : esp_var : map VarT (map (mkName.show) vs))
                                                 [(n,vs)| (ns, vs) <- map getDataConNames cons, n <- ns]
         constraint_tuple = foldl' AppT (TupleT (length type_family_con)) type_family_con;
         constraint_type  = KindedTV phi BndrReq (AppT (AppT ArrowT StarT) (ConT ''Constraint));
@@ -176,7 +175,7 @@ derive_simple_decorator tn sn tiets default_type
                 let var_types = map (\v -> (VarT v)) var_names
                 let type_def = appTypes $ ConT (suffixX tn) : ConT sn : var_types
                 let ty_syn = TySynD (mkName (nameBase tn ++ nameBase sn)) vars type_def
-                let make_ty_inst (name, ty) = TySynInstD $ 
+                let make_ty_inst (name, ty) = TySynInstD $
                                                 TySynEqn Nothing (appTypes $ ConT (prefixX name) : ConT sn : var_types) (ConT ty)
                 let ty_syn_eqns = map make_ty_inst tiets
                 let default_con_names = zip ((getAllConNames cons ++ [tn]) \\ map fst tiets) (repeat default_type)
@@ -192,16 +191,16 @@ derive_decrator :: Name -- ^ type name
 derive_decrator tn sn tiets default_type
     = do
         info <- reify tn
-        let var_names = (map (mkName. (\x -> x:[])) ['a'..'z']) -- Just limit it to 26 
+        let var_names = (map (mkName. (\x -> x:[])) ['a'..'z']) -- Just limit it to 26
         case info of
             TyConI (DataD _ _ tvbs _ cons _) -> do
                 let vars = map (\v -> PlainTV v BndrReq) (take (length tvbs) var_names)
                 let var_types = map (\v -> (VarT v)) (take (length tvbs) var_names)
                 let type_def = appTypes $ ConT (suffixX tn) : ConT sn : var_types
                 let ty_syn = TySynD (mkName (nameBase tn ++ nameBase sn)) vars type_def
-                let make_ty_inst (name, ty) = do 
+                let make_ty_inst (name, ty) = do
                                     rhs_ty <- ty
-                                    return $ TySynInstD $ 
+                                    return $ TySynInstD $
                                                 TySynEqn Nothing (appTypes $ ConT (prefixX name) : ConT sn : var_types) rhs_ty
                 let default_con_names = zip ((getAllConNames cons ++ [tn]) \\ map fst tiets) (repeat default_type)
                 ty_syn_eqns <- sequence $ map make_ty_inst tiets
