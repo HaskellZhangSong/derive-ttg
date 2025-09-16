@@ -8,12 +8,18 @@ import Data.Derive.TTG
 import Language.Haskell.TH
 import GHC.Exts (Constraint)
 import Data.Void
-data Lam a = Var String a
-           | App (Lam a)(Lam a) a  
-           | Abs String (Lam a) a
+data Lam a = Val (Expr a)
+           | App (Lam a) (Expr a)
+           | Abs String (Expr a)
+         deriving Eq
+data Expr a = EVar String
+           | EInt Int
+           | EApp (Expr a) (Expr a)   
+           | EAdd (Expr a) (Expr a)
          deriving Eq
 
-derive_ttg ''Lam []
+
+derive_ttgs [''Lam, ''Expr ]
 
 data Ps
 -- We can decorate App with Bool type

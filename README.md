@@ -29,7 +29,69 @@ We can generate a new `Lam` type with decoration types, related constraint types
     type ForallXLam (phi :: ghc-prim:GHC.Types.Type
                             -> Constraint) esp =
         (phi (XVar esp), phi (XApp esp), phi (XAbs esp), phi (XLam esp))
+```
 
+`Lam` may use other types that need extension, you need to put the name into the second argument list. 
+
+```haskell
+data Lam a = Val (Expr a)
+           | App (Lam a) (Expr a)
+           | Abs String (Expr a)
+         deriving Eq
+data Expr a = EVar String
+           | EInt Int
+           | EApp (Expr a) (Expr a)   
+           | EAdd (Expr a) (Expr a)
+         deriving Eq
+
+derive_ttg ''Expr []
+derive_ttg ''Lam [''Expr]
+```
+
+`Expr` should be transformed into `ExprX`
+
+```haskell
+   derive_ttg ''Expr []
+  ======>
+    data ExprX eps_a2J6 (a_a1hq :: ghc-prim:GHC.Types.Type)
+      = EVarX (XEVar eps_a2J6 a_a1hq) String |
+        EIntX (XEInt eps_a2J6 a_a1hq) Int |
+        EAppX (XEApp eps_a2J6 a_a1hq) (ExprX eps_a2J6 a_a1hq) (ExprX eps_a2J6 a_a1hq) |
+        EAddX (XEAdd eps_a2J6 a_a1hq) (ExprX eps_a2J6 a_a1hq) (ExprX eps_a2J6 a_a1hq) |
+        ExprX (XExpr eps_a2J6 a_a1hq)
+    type family XEVar eps a_a1hq
+    type family XEInt eps a_a1hq
+    type family XEApp eps a_a1hq
+    type family XEAdd eps a_a1hq
+    type family XExpr eps a_a1hq
+    type ForallXExpr (phi :: ghc-prim:GHC.Types.Type
+                             -> Constraint) esp a_a1hq =
+        (phi (XEVar esp a_a1hq), phi (XEInt esp a_a1hq),
+         phi (XEApp esp a_a1hq), phi (XEAdd esp a_a1hq),
+         phi (XExpr esp a_a1hq))
+vars:[a_6989586621679014717]
+/haskell/derive-ttg/test/Spec.hs:23:1-25: Splicing declarations
+    derive_ttg ''Lam [''Expr]
+  ======>
+    data LamX eps_a2LK (a_a1hr :: ghc-prim:GHC.Types.Type)
+      = ValX (XVal eps_a2LK a_a1hr) (ExprX eps_a2LK a_a1hr) |
+        AppX (XApp eps_a2LK a_a1hr) (LamX eps_a2LK a_a1hr) (ExprX eps_a2LK a_a1hr) |
+        AbsX (XAbs eps_a2LK a_a1hr) String (ExprX eps_a2LK a_a1hr) |
+        LamX (XLam eps_a2LK a_a1hr)
+    type family XVal eps a_a1hr
+    type family XApp eps a_a1hr
+    type family XAbs eps a_a1hr
+    type family XLam eps a_a1hr
+    type ForallXLam (phi :: ghc-prim:GHC.Types.Type
+                            -> Constraint) esp a_a1hr =
+        (phi (XVal esp a_a1hr), phi (XApp esp a_a1hr),
+         phi (XAbs esp a_a1hr), phi (XLam esp a_a1hr))
+```
+
+You can put related types together by using `derive_ttgs [''Lam, ''Expr ]`
+
+
+```haskell
     derive_simple_decorator ''Lam "Parse" [('App, ''Bool)] ''()
   ======>
     type LamParse a_a2z3 = LamX a_a2z3
