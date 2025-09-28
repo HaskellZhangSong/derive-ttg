@@ -5,8 +5,9 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 import Data.Derive.TTG
-import Language.Haskell.TH
-import GHC.Exts (Constraint)
+    ( derive_decrator, derive_simple_decorator, derive_ttgs )
+-- import Language.Haskell.TH
+-- import GHC.Exts (Constraint)
 import Data.Void
 data Lam a = Val (Expr a)
            | App (Lam a) (Expr a)
@@ -29,7 +30,11 @@ derive_simple_decorator ''Lam ''Ps [('App, ''Bool)] ''()
 -- derive_simple_decorator ''Lam "TC" [(''Lam, ''Bool)] ''() 
 
 data Ds 
-derive_decrator ''Lam ''Ds [('App, [t| ((), Bool)|])] [t|()|]
+derive_decrator ''Lam ''Ds [('Val, \[v] -> return v),
+                            ('App, \_ -> [t| ((), (Char, Bool))|]), 
+                            ('Abs, \_ -> [t| ((), (String, Bool)) |]),
+                            (''Lam, \[v] -> [t| ((), ($(return v), Bool)) |])] [t|()|]
+
 
 main :: IO ()
 main = putStrLn "Test suite not yet implemented"

@@ -158,8 +158,8 @@ derive_simple_decorator tn sn tiets default_type
 
 derive_decrator :: Name -- ^ type name
                 -> Name -- ^ stage name
-                -> [(Name, Q Type)]
-                -> Q Type
+                -> [(Name, [Type] -> Q Type)] -- ^ Data constructor name and type function that takes type variables and return a type
+                -> Q Type -- ^ default type
                 -> Q [Dec]
 derive_decrator tn sn tiets default_type
     = do
@@ -171,11 +171,11 @@ derive_decrator tn sn tiets default_type
                 let var_types = map (\v -> (VarT v)) (take (length tvbs) var_names)
                 let type_def = appTypes $ ConT (suffixX tn) : ConT sn : var_types
                 let ty_syn = TySynD (mkName (nameBase tn ++ nameBase sn)) vars type_def
-                let make_ty_inst (name, ty) = do 
-                                    rhs_ty <- ty
-                                    return $ TySynInstD $ 
+                let make_ty_inst (name, ty_call_back) = do 
+                                    rhs_ty <- ty_call_back var_types
+                                    return $ TySynInstD $
                                                 TySynEqn Nothing (appTypes $ ConT (prefixX name) : ConT sn : var_types) rhs_ty
-                let default_con_names = zip ((getAllConNames cons ++ [tn]) \\ map fst tiets) (repeat default_type)
+                let default_con_names = zip ((getAllConNames cons ++ [tn]) \\ map fst tiets) (repeat (const default_type))
                 ty_syn_eqns <- sequence $ map make_ty_inst tiets
                 default_ty_syn_eqns <- sequence $ map make_ty_inst default_con_names
                 return $ [ty_syn] ++ ty_syn_eqns ++ default_ty_syn_eqns
